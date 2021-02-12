@@ -1,2 +1,2 @@
 # WabbaBot
-A work-in-progress Discord bot for managing modlists and their releases
+A work-in-progress Discord bot for managing [Wabbajack](https://www.wabbajack.org) modlists and their releases
