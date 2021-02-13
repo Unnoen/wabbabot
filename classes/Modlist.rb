@@ -1,4 +1,3 @@
-require_relative 'ModlistAuthor'
 require 'json'
 require 'active_support/all'
 
@@ -10,9 +9,9 @@ class Modlists
     read_existing_lists
   end
 
-  def add(id, name)
-    modlist = Modlist.new(id, name)
-    return if @modlists.include? modlist
+  def add(id, name, user)
+    modlist = Modlist.new(id, name, user)
+    return false if @modlists.include? modlist
 
     @modlists.push(modlist)
     save
@@ -28,7 +27,6 @@ class Modlists
   end
 
   def save
-
     # .positive? Makes it return a bool if succesful instead of the number of chars written
     File.write(@modlist_path, @modlists.to_json).positive?
   end
@@ -62,10 +60,11 @@ class Modlists
 end
 
 class Modlist
-  attr_reader :id, :name
-  def initialize(id, name)
+  attr_reader :id, :name, :user
+  def initialize(id, name, user)
     @id = id
     @name = name
+    @user = user
   end
 
   def to_hash

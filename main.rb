@@ -4,7 +4,6 @@
 require 'discordrb'
 require 'slop'
 require_relative 'classes/Modlist'
-require_relative 'classes/ModlistAuthor'
 
 $root_dir = __dir__
 
@@ -43,16 +42,12 @@ bot.command(:release, description: 'Put out a new release of your list', usage: 
   end
 end
 
-bot.command(:add_modlist, description: 'Adds a new modlist', usage: "#{opts[:prefix]}add_modlist <modlist_id> <modlist_name>", min_args: 1) do |event, id, name|
-  "Modlist #{name} with ID `#{id}` owned by #{event.author.username} was added to the database." if modlists.add(id, name)
+bot.command(:add_modlist, description: 'Adds a new modlist', usage: "#{opts[:prefix]}add_modlist <modlist_id> <modlist_name> <user>", min_args: 3) do |event, id, name, user|
+  "Modlist #{name} with ID `#{id}` owned by #{user.username} was added to the database." if modlists.add(id, name, user)
 end
 
 bot.command(:modlists, description: 'Presents a list of all modlists', usage: "#{opts[:prefix]}modlists") do |event|
   modlists.show
-end
-
-bot.command(:add_modlist_author, description: 'Adds a new modlist author to a list', usage: "#{opts[:prefix]}add_modlist_author <discord_id> <modlist>", min_args: 2) do |event, discord_id, modlist|
-  'this actually doesn\'t work yet'
 end
 
 bot.run
