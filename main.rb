@@ -7,8 +7,9 @@ require_relative 'classes/Modlist'
 
 $root_dir = __dir__
 
+
 opts = Slop.parse do |arg|
-  arg.string '-p', '--prefix', 'prefix to use for bot commands', default: '$'
+  arg.string '-p', '--prefix', 'prefix to use for @bot commands', default: '$'
   arg.on '-h', '--help' do
     puts arg
     exit
@@ -25,29 +26,58 @@ prefix = proc do |message|
 end
 
 settings_path = "#{$root_dir}/db/settings.json"
-settings = JSON.parse(File.open(settings_path).read)
-modlists = Modlists.new
+@settings = JSON.parse(File.open(settings_path).read)
+@modlists = Modlists.new
 
-bot = Discordrb::Commands::CommandBot.new(token: settings['token'], client_id: settings['client_id'], prefix: prefix)
 
-bot.command(:release, description: 'Put out a new release of your list', usage: "#{opts[:prefix]}release <semantic version> <message>", min_args: 2) do |event, version, message|
+@bot = Discordrb::Commands::CommandBot.new(token: @settings['token'], client_id: @settings['client_id'], prefix: prefix)
+
+@bot.command(:release, description: 'Put out a new release of your list', usage: "#{opts[:prefix]}release <semantic version> <message>", min_args: 2) do |event, version, message|
+  modlist = @modlists.get_by_user_id(event.author.id)
+
   event.channel.send_embed do |embed|
-    embed.title = "#{event.author.username} just released Skyrimified #{version}!"
+    embed.title = "#{event.author.username} just released #{modlist.name} #{version}!"
     embed.colour = 0xd5cb2a
     embed.timestamp = Time.now
     embed.description = message
 
-    # embed.thumbnail = Discordrb::Webhooks::EmbedThumbnail.new(url: player.avatar)
     embed.footer = Discordrb::Webhooks::EmbedFooter.new(text: "WabbaBot")
   end
 end
 
-bot.command(:add_modlist, description: 'Adds a new modlist', usage: "#{opts[:prefix]}add_modlist <modlist_id> <modlist_name> <user>", min_args: 3) do |event, id, name, user|
-  "Modlist #{name} with ID `#{id}` owned by #{user.username} was added to the database." if modlists.add(id, name, user)
+@bot.command(:add_modlist, description: 'Adds a new modlist', usage: "#{opts[:prefix]}add_modlist <modlist_id> <modlist_name> <user_id>", min_args: 3) do |event, id, name, user|
+  admins_only(event)
+
+  error(event, 'Invalid user id provided') unless user.length == 22 || user.length == 18
+  user = user[3..-2] if user.length == 22
+  "Modlist #{name} with ID `#{id}` was added to the database." if @modlists.add(id, name, user)
 end
 
-bot.command(:modlists, description: 'Presents a list of all modlists', usage: "#{opts[:prefix]}modlists") do |event|
-  modlists.show
+@bot.command(:del_modlist, description: 'Deletes a modlist', usage: "#{opts[:prefix]}del_modlist <modlist_id>", min_args: 1) do |event, id|
+  admins_only(event)
+
+  "Modlist with ID `#{id}` was deleted." if @modlists.del_by_id(id)
 end
 
-bot.run
+@bot.command(:modlists, description: 'Presents a list of all modlists', usage: "#{opts[:prefix]}modlists") do |event|
+  admins_only(event)
+
+  @modlists.show
+end
+
+def error(event, message)
+  error_msg = "Error: **#{message}.**"
+  @bot.send_message(event.channel, error_msg)
+  raise error_msg
+end
+
+def log(message)
+  log_msg = "[#{Time.now}] - #{message}"
+  puts log_msg
+end
+
+def admins_only(event)
+  error(event, "User #{event.author.username} has no privileges for this action") unless @settings['admins'].include? event.author.id
+end
+
+@bot.run

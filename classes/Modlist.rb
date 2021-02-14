@@ -17,13 +17,24 @@ class Modlists
     save
   end
 
-  def del(modlist_to_del)
-    @modlists.delete(modlist_to_del)
+  def del(modlist)
+    @modlists.delete(modlist)
     save
   end
 
-  def get(modlist_to_get)
-    @modlists.detect { |modlist| modlist == modlist_to_get }
+  def del_by_id(modlist_id)
+    @modlists.delete_if { |modlist| modlist.id == modlist_id }
+    save
+  end
+
+  def get(modlist)
+    @modlists.detect { |existing_modlist| existing_modlist == modlist }
+  end
+
+  def get_by_user_id(user_id)
+    @modlists.each do |modlist|
+      return modlist if modlist.user == user_id
+    end
   end
 
   def save
@@ -46,7 +57,7 @@ class Modlists
 
     json = JSON.parse(File.open(@modlist_path).read)
     json.each do |child|
-      @modlists.push(Modlist.new(child['id'], child['name']))
+      @modlists.push(Modlist.new(child['id'], child['name'], child['user']))
     end
     puts @modlists
   end
@@ -64,7 +75,7 @@ class Modlist
   def initialize(id, name, user)
     @id = id
     @name = name
-    @user = user
+    @user = user.to_i
   end
 
   def to_hash
