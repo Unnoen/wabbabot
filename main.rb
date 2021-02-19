@@ -32,6 +32,8 @@ settings_path = "#{$root_dir}/db/settings.json"
 
 @bot = Discordrb::Commands::CommandBot.new(token: @settings['token'], client_id: @settings['client_id'], prefix: prefix)
 
+puts "Running WabbaBot with invite URL: #{@bot.invite_url}."
+
 @bot.command(:release, description: 'Put out a new release of your list', usage: "#{opts[:prefix]}release <semantic version> <message>", min_args: 2) do |event, version, message|
   modlist = @modlists.get_by_user_id(event.author.id)
 
@@ -50,7 +52,14 @@ end
 
   error(event, 'Invalid user id provided') unless user.length == 22 || user.length == 18
   user = user[3..-2] if user.length == 22
-  "Modlist #{name} with ID `#{id}` was added to the database." if @modlists.add(id, name, user)
+
+  begin
+  role = event.server.create_role(name: name, colour: 0)
+  rescue Discordrb::Errors::NoPermission
+    return 'I don\'t have permission to manage roles!'
+  end
+
+  "Modlist #{name} with ID `#{id}` was added to the database." if @modlists.add(id, name, user, role.id)
 end
 
 @bot.command(:del_modlist, description: 'Deletes a modlist', usage: "#{opts[:prefix]}del_modlist <modlist_id>", min_args: 1) do |event, id|

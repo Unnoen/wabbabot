@@ -9,8 +9,8 @@ class Modlists
     read_existing_lists
   end
 
-  def add(id, name, user)
-    modlist = Modlist.new(id, name, user)
+  def add(id, name, user, role_id)
+    modlist = Modlist.new(id, name, user, role_id)
     return false if @modlists.include? modlist
 
     @modlists.push(modlist)
@@ -45,7 +45,7 @@ class Modlists
   def show
     modlists_str = "There are #{@modlists.count} modlists.\n"
     @modlists.each_with_index do |modlist, index|
-      modlists_str << "#{index}: #{modlist.name} (`#{modlist.id}`)\n"
+      modlists_str << "#{index}: #{modlist.name} (`#{modlist.id}`) owned by #{modlist.user}\n"
     end
     return modlists_str
   end
@@ -57,7 +57,7 @@ class Modlists
 
     json = JSON.parse(File.open(@modlist_path).read)
     json.each do |child|
-      @modlists.push(Modlist.new(child['id'], child['name'], child['user']))
+      @modlists.push(Modlist.new(child['id'], child['name'], child['user'], child['role_id']))
     end
     puts @modlists
   end
@@ -71,11 +71,12 @@ class Modlists
 end
 
 class Modlist
-  attr_reader :id, :name, :user
-  def initialize(id, name, user)
+  attr_reader :id, :name, :user, :role_id
+  def initialize(id, name, user, role_id)
     @id = id
     @name = name
     @user = user.to_i
+    @role_id = role_id
   end
 
   def to_hash
