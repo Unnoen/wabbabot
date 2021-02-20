@@ -10,7 +10,7 @@ require_relative 'classes/Modlist'
 $root_dir = __dir__
 
 opts = Slop.parse do |arg|
-  arg.string '-p', '--prefix', 'prefix to use for @bot commands', default: '$'
+  arg.string '-p', '--prefix', 'prefix to use for @bot commands', default: '!'
   arg.on '-h', '--help' do
     puts arg
     exit
@@ -38,6 +38,7 @@ puts "Running WabbaBot with invite URL: #{@bot.invite_url}."
   # format of channel <#804803296669466707>
   error(event, 'Invalid channel provided') unless (match = channel.match(/<#([0-9]+)>/))
   channel_id = match.captures[0]
+  channels_path = "#{$root_dir}/db/channels.json"
   puts channel_id
 end
 
@@ -47,23 +48,24 @@ end
 @bot.command(:unlisten, description: 'Stop listening to new modlist releasees from the specified list', usage: "#{opts[:prefix]}unlisten <modlist id>", min_args: 1) do |event, modlist_id|
 end
 
-@bot.command(:release, description: 'Put out a new release of your list', usage: "#{opts[:prefix]}release <version> <message>", min_args: 2) do |event, version, *args|
-  modlist = @modlists.get_by_user_id(event.author.id)
+@bot.command(:release, description: 'Put out a new release of your list', usage: "#{opts[:prefix]}release <modlist_id> <message>", min_args: 1) do |event, modlist_id, *args|
+  modlists_json = uri_to_json(@settings['modlists_url'])
 
-  wabbajack_modlists = uri_to_json(@settings['modlists_url'])
-  modlist_json = wabbajack_modlists.detect { |m| m['links']['machineURL'] == modlist.id }
+  modlist = @modlists.get_by_id(modlist_id)
+  error(event, "Modlist with id #{modlist_id} not found") if modlist.nil?
 
-  error 'Version doesn\'t match modlists json!' if version != modlist_json['version']
+  modlist_json = modlists_json.detect { |m| m['links']['machineURL'] == modlist_id }
+  version = modlist_json['version']
 
   modlist_image = value_of(value_of(modlist_json, 'links'), 'image')
 
-  message = event.message.content.delete_prefix("#{opts[:prefix]}release #{version} ")
-  puts message
+  message = event.message.content.delete_prefix("#{opts[:prefix]}release #{modlist_id}")
   event.channel.send_embed do |embed|
     embed.title = "#{event.author.username} just released #{modlist.name} #{version}!"
-    embed.colour = 0xd5cb2a
+    embed.colour = 0xbb86fc
     embed.timestamp = Time.now
     embed.description = message
+    #embed.url = modlist_json['links']['readme']
     embed.image = Discordrb::Webhooks::EmbedImage.new(url: modlist_image)
     embed.footer = Discordrb::Webhooks::EmbedFooter.new(text: 'WabbaBot')
   end
@@ -71,6 +73,10 @@ end
 
 @bot.command(:addmodlist, description: 'Adds a new modlist', usage: "#{opts[:prefix]}addmodlist <user> <modlist id> <modlist name>", min_args: 3) do |event, user, id, *args|
   admins_only(event)
+
+  modlists_json = uri_to_json(@settings['modlists_url'])
+  modlist_json = modlists_json.detect { |m| m['links']['machineURL'] == id }
+  error(event, 'Modlist does not exist in external modlists JSON') if modlist_json.nil?
 
   name = args.join(' ')
   # format of user id @<185807760590372874>
@@ -83,6 +89,7 @@ end
     return 'I don\'t have permission to manage roles!'
   end
 
+
   "Modlist #{name} with ID `#{id}` was added to the database." if @modlists.add(id, name, user_id, role.id)
 end
 
@@ -94,7 +101,7 @@ end
   begin
     role.delete
   rescue Discordrb::Errors::NoPermission
-    error 'I don\'t have permission to manage roles!'
+    error(event, 'I don\'t have permission to manage roles!')
   end
   "Modlist with ID `#{id}` was deleted." if @modlists.del(modlist)
 end
@@ -106,7 +113,7 @@ end
 end
 
 def error(event, message)
-  error_msg = "Error: **#{message}.**"
+  error_msg = "An error occurred! **#{message}.**"
   @bot.send_message(event.channel, error_msg)
   raise error_msg
 end
