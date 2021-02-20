@@ -31,6 +31,10 @@ class Modlists
     @modlists.detect { |existing_modlist| existing_modlist == modlist }
   end
 
+  def get_by_id(id)
+    @modlists.detect { |existing_modlist| existing_modlist.id == id }
+  end
+
   def get_by_user_id(user_id)
     @modlists.each do |modlist|
       return modlist if modlist.user == user_id

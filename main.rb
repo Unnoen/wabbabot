@@ -34,18 +34,25 @@ settings_path = "#{$root_dir}/db/settings.json"
 
 puts "Running WabbaBot with invite URL: #{@bot.invite_url}."
 
+@bot.command(:set_release_channel, description: 'Sets the channel to release modlist release notifications to', usage: "#{opts[:prefix]}set_up_release_channel <channel>", min_args: 1) do |event, channel|
+  # format of channel <#804803296669466707>
+  error(event, 'Invalid channel provided') unless (match = user.match(/<#([0-9]+)>/))
+  channel_id = match.captures[0]
+
+end
+
 @bot.command(:release, description: 'Put out a new release of your list', usage: "#{opts[:prefix]}release <semantic version> <message>", min_args: 2) do |event, version, *args|
   modlist = @modlists.get_by_user_id(event.author.id)
 
   wabbajack_modlists = uri_to_json(@settings['modlists_url'])
   modlist_json = wabbajack_modlists.detect { |m| m['links']['machineURL'] == modlist.id }
 
-  return 'Version doesn\'t match modlists json!' if version != modlist_json['version']
+  error 'Version doesn\'t match modlists json!' if version != modlist_json['version']
 
   modlist_image = value_of(value_of(modlist_json, 'links'), 'image')
 
   message = event.message.content.delete_prefix("#{opts[:prefix]}release #{version} ")
-  #message = (args * ' ')
+  puts message
   event.channel.send_embed do |embed|
     embed.title = "#{event.author.username} just released #{modlist.name} #{version}!"
     embed.colour = 0xd5cb2a
@@ -56,11 +63,13 @@ puts "Running WabbaBot with invite URL: #{@bot.invite_url}."
   end
 end
 
-@bot.command(:add_modlist, description: 'Adds a new modlist', usage: "#{opts[:prefix]}add_modlist <modlist_id> <modlist_name> <user_id>", min_args: 3) do |event, id, name, user|
+@bot.command(:add_modlist, description: 'Adds a new modlist', usage: "#{opts[:prefix]}add_modlist <user> <modlist id> <modlist name>", min_args: 3) do |event, user, id, *args|
   admins_only(event)
 
-  error(event, 'Invalid user id provided') unless user.length == 22 || user.length == 18
-  user = user[3..-2] if user.length == 22
+  name = args.join(' ')
+  # format of user id @<185807760590372874>
+  error(event, 'Invalid user provided') unless (match = user.match(/<@!([0-9]+)>/))
+  user_id = match.captures[0]
 
   begin
     role = event.server.create_role(name: name, colour: 0)
@@ -68,13 +77,17 @@ end
     return 'I don\'t have permission to manage roles!'
   end
 
-  "Modlist #{name} with ID `#{id}` was added to the database." if @modlists.add(id, name, user, role.id)
+  "Modlist #{name} with ID `#{id}` was added to the database." if @modlists.add(id, name, user_id, role.id)
 end
 
 @bot.command(:del_modlist, description: 'Deletes a modlist', usage: "#{opts[:prefix]}del_modlist <modlist_id>", min_args: 1) do |event, id|
   admins_only(event)
 
-  "Modlist with ID `#{id}` was deleted." if @modlists.del_by_id(id)
+  modlist = @modlists.get_by_id(id)
+  role = event.server.roles.detect {|role| role.id == modlist.role_id}
+  puts role
+  role.delete
+  "Modlist with ID `#{id}` was deleted." if @modlists.del(modlist)
 end
 
 @bot.command(:modlists, description: 'Presents a list of all modlists', usage: "#{opts[:prefix]}modlists") do |event|
