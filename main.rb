@@ -34,14 +34,20 @@ settings_path = "#{$root_dir}/db/settings.json"
 
 puts "Running WabbaBot with invite URL: #{@bot.invite_url}."
 
-@bot.command(:set_release_channel, description: 'Sets the channel to release modlist release notifications to', usage: "#{opts[:prefix]}set_up_release_channel <channel>", min_args: 1) do |event, channel|
+@bot.command(:setchannel, description: 'Sets the channel to release modlist release notifications to', usage: "#{opts[:prefix]}set_up_release_channel <channel>", min_args: 1) do |event, channel|
   # format of channel <#804803296669466707>
-  error(event, 'Invalid channel provided') unless (match = user.match(/<#([0-9]+)>/))
+  error(event, 'Invalid channel provided') unless (match = channel.match(/<#([0-9]+)>/))
   channel_id = match.captures[0]
-
+  puts channel_id
 end
 
-@bot.command(:release, description: 'Put out a new release of your list', usage: "#{opts[:prefix]}release <semantic version> <message>", min_args: 2) do |event, version, *args|
+@bot.command(:listen, description: 'Listen to new modlist releasees from the specified list', usage: "#{opts[:prefix]}listen <modlist id>", min_args: 1) do |event, modlist_id|
+end
+
+@bot.command(:unlisten, description: 'Stop listening to new modlist releasees from the specified list', usage: "#{opts[:prefix]}unlisten <modlist id>", min_args: 1) do |event, modlist_id|
+end
+
+@bot.command(:release, description: 'Put out a new release of your list', usage: "#{opts[:prefix]}release <version> <message>", min_args: 2) do |event, version, *args|
   modlist = @modlists.get_by_user_id(event.author.id)
 
   wabbajack_modlists = uri_to_json(@settings['modlists_url'])
@@ -63,12 +69,12 @@ end
   end
 end
 
-@bot.command(:add_modlist, description: 'Adds a new modlist', usage: "#{opts[:prefix]}add_modlist <user> <modlist id> <modlist name>", min_args: 3) do |event, user, id, *args|
+@bot.command(:addmodlist, description: 'Adds a new modlist', usage: "#{opts[:prefix]}addmodlist <user> <modlist id> <modlist name>", min_args: 3) do |event, user, id, *args|
   admins_only(event)
 
   name = args.join(' ')
   # format of user id @<185807760590372874>
-  error(event, 'Invalid user provided') unless (match = user.match(/<@!([0-9]+)>/))
+  error(event, 'Invalid user provided') unless (match = user.match(/<@!?([0-9]+)>/))
   user_id = match.captures[0]
 
   begin
@@ -80,13 +86,16 @@ end
   "Modlist #{name} with ID `#{id}` was added to the database." if @modlists.add(id, name, user_id, role.id)
 end
 
-@bot.command(:del_modlist, description: 'Deletes a modlist', usage: "#{opts[:prefix]}del_modlist <modlist_id>", min_args: 1) do |event, id|
+@bot.command(:delmodlist, description: 'Deletes a modlist', usage: "#{opts[:prefix]}delmodlist <modlist_id>", min_args: 1) do |event, id|
   admins_only(event)
 
   modlist = @modlists.get_by_id(id)
   role = event.server.roles.detect {|role| role.id == modlist.role_id}
-  puts role
-  role.delete
+  begin
+    role.delete
+  rescue Discordrb::Errors::NoPermission
+    error 'I don\'t have permission to manage roles!'
+  end
   "Modlist with ID `#{id}` was deleted." if @modlists.del(modlist)
 end
 
