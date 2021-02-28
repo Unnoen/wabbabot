@@ -1,7 +1,9 @@
-require 'json'
-require 'active_support/all'
+# frozen_string_literal: true
 
-class Modlists
+require 'active_support/all'
+require_relative 'modlist'
+
+class ModlistManager
   def initialize
     @modlists = []
     @modlist_path = "#{$root_dir}/db/modlists.json"
@@ -9,8 +11,7 @@ class Modlists
     read_existing_lists
   end
 
-  def add(id, name, user, role_id)
-    modlist = Modlist.new(id, name, user, role_id)
+  def add(modlist)
     return false if @modlists.include? modlist
 
     @modlists.push(modlist)
@@ -28,11 +29,11 @@ class Modlists
   end
 
   def get(modlist)
-    @modlists.detect { |existing_modlist| existing_modlist == modlist }
+    @modlists.find { |existing_modlist| existing_modlist == modlist }
   end
 
   def get_by_id(id)
-    @modlists.detect { |existing_modlist| existing_modlist.id == id }
+    @modlists.find { |existing_modlist| existing_modlist.id == id }
   end
 
   def get_by_user_id(user_id)
@@ -47,9 +48,9 @@ class Modlists
   end
 
   def show
-    modlists_str = "There are #{@modlists.count} modlists.\n"
+    modlists_str = @modlists.count == 1 ? "There is 1 modlist.\n" : "There are #{@modlists.count} modlists.\n"
     @modlists.each_with_index do |modlist, index|
-      modlists_str << "#{index}: #{modlist.name} (`#{modlist.id}`) owned by #{modlist.user}\n"
+      modlists_str << "#{index} - **#{modlist.name}** (`#{modlist.id}`) owned by **#{modlist.username}** (#{modlist.user})\n"
     end
     return modlists_str
   end
@@ -57,13 +58,20 @@ class Modlists
   private
 
   def read_existing_lists
-    return unless File.exist? @modlist_path
+    return unless File.exist?(@modlist_path)
 
     json = JSON.parse(File.open(@modlist_path).read)
     json.each do |child|
-      @modlists.push(Modlist.new(child['id'], child['name'], child['user'], child['role_id']))
+      @modlists.push(
+        Modlist.new(
+          child['id'],
+          child['name'],
+          child['user'],
+          child['username'],
+          child['role_id']
+        )
+      )
     end
-    puts @modlists
   end
 
   # Create directories and files if they do not exist
@@ -74,21 +82,3 @@ class Modlists
   end
 end
 
-class Modlist
-  attr_reader :id, :name, :user, :role_id
-  def initialize(id, name, user, role_id)
-    @id = id
-    @name = name
-    @user = user.to_i
-    @role_id = role_id
-  end
-
-  def to_hash
-    Hash[instance_variables.map { |var| [var.to_s[1..-1], instance_variable_get(var)] }]
-  end
-
-  def ==(other)
-    self.class === other && other.id == @id
-  end
-
-end
