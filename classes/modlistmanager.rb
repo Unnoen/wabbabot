@@ -1,4 +1,4 @@
-# frozen_string_literal: true
+# frozen_string_literal: false
 
 require 'active_support/all'
 require_relative 'modlist'
@@ -24,8 +24,8 @@ class ModlistManager
   end
 
   def del_by_id(modlist_id)
-    @modlists.delete_if { |modlist| modlist.id == modlist_id }
-    save
+    modlist = get_by_id(modlist_id)
+    del(modlist)
   end
 
   def get(modlist)
@@ -36,9 +36,9 @@ class ModlistManager
     @modlists.find { |existing_modlist| existing_modlist.id == id }
   end
 
-  def get_by_user_id(user_id)
+  def get_by_author_id(author_id)
     @modlists.each do |modlist|
-      return modlist if modlist.user == user_id
+      return modlist if modlist.author == author_id
     end
   end
 
@@ -50,7 +50,7 @@ class ModlistManager
   def show
     modlists_str = @modlists.count == 1 ? "There is 1 modlist.\n" : "There are #{@modlists.count} modlists.\n"
     @modlists.each_with_index do |modlist, index|
-      modlists_str << "#{index} - **#{modlist.name}** (`#{modlist.id}`) owned by **#{modlist.username}** (#{modlist.user})\n"
+      modlists_str << "#{index} - **#{modlist.name}** (`#{modlist.id}`) owned by **#{modlist.authorname}** (#{modlist.author}).\n"
     end
     return modlists_str
   end
@@ -66,8 +66,8 @@ class ModlistManager
         Modlist.new(
           child['id'],
           child['name'],
-          child['user'],
-          child['username'],
+          child['author'],
+          child['authorname'],
           child['role_id']
         )
       )

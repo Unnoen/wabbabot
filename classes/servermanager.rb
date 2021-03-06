@@ -8,7 +8,7 @@ class ServerManager
     read_existing_servers
   end
 
-  def get_servers_listening_to(modlist_id)
+  def get_servers_listening_to_id(modlist_id)
     servers_to_return = []
     @servers.each do |server|
       server.listening_channels.each do |channel|

@@ -8,7 +8,7 @@ require_relative 'helpers/webhelper'
 require_relative 'classes/modlistmanager'
 require_relative 'classes/servermanager'
 
-$root_dir = __dir__
+$root_dir = __dir__.freeze
 
 opts = Slop.parse do |arg|
   arg.string '-p', '--prefix', 'prefix to use for @bot commands', default: '!'
@@ -28,7 +28,7 @@ prefix = proc do |message|
 end
 
 settings_path = "#{$root_dir}/db/settings.json"
-@settings = JSON.parse(File.open(settings_path).read)
+$settings = JSON.parse(File.open(settings_path).read).freeze
 @modlistmanager = ModlistManager.new
 @servermanager = ServerManager.new
 
@@ -56,10 +56,14 @@ end
 
 @bot.command(
   :unlisten,
-  description: 'Stop listening to new modlist releasees from the specified list in the specified channel',
+  description: 'Stop listening to new modlist releases from the specified list in the specified channel',
   usage: "#{opts[:prefix]}unlisten <modlist id> <channel>",
   min_args: 1
 ) do |event, modlist_id, channel|
+  server = @servermanager.spawn(event.server.id, event.server.name)
+  channel_id = get_channel_id(event, channel)
+  
+  error(event, 'Not implemented yet, spam trawzified about this')
 end
 
 @bot.command(
@@ -72,6 +76,7 @@ end
 
   modlist = @modlistmanager.get_by_id(modlist_id)
   error(event, "Modlist with id #{modlist_id} not found") if modlist.nil?
+  error(event, 'You\'re not managing this list') if modlist.user != event.author.id
 
   modlist_json = modlistmanager_json.find { |m| m['links']['machineURL'] == modlist_id }
   version = modlist_json['version']
@@ -79,14 +84,16 @@ end
 
   message = event.message.content.delete_prefix("#{opts[:prefix]}release #{modlist_id}")
 
-  listening_servers = @servermanager.get_servers_listening_to(modlist_id)
-  success = false
+  listening_servers = @servermanager.get_servers_listening_to_id(modlist_id)
+  channel_count = 0
+  listening_server_count = 0
   error(event, 'There are no servers listening to these modlist releases') if listening_servers.empty?
   listening_servers.each do |listening_server|
     server = @bot.servers[listening_server.id]
+    listening_server_count += 1
     listening_server.listening_channels.each do |channel|
       channel_to_post_in = server.channels.find { |c| c.id == channel.id.to_i }
-      success = true
+      channel_count += 1
       channel_to_post_in.send_embed do |embed|
         embed.title = "#{event.author.username} just released #{modlist.name} #{version}!"
         embed.colour = 0xbb86fc
@@ -98,40 +105,28 @@ end
       end
     end
   end
-  success ? "Modlist was released in #{listening_servers.count} servers!" : error(event, 'Failed to release modlist in any servers')
+  success ? "Modlist was released in #{channel_count} channels in #{listening_servers_count} servers!" : error(event, 'Failed to release modlist in any servers')
 end
-
 
 @bot.command(
   :addmodlist,
   description: 'Adds a new modlist',
-  usage: "#{opts[:prefix]}addmodlist <user> <modlist id>",
+  usage: "#{opts[:prefix]}addmodlist <user> <role> <modlist id>",
   min_args: 2
-) do |event, user, id|
+) do |event, user, role, id|
   admins_only(event)
 
-  modlistmanager_json = uri_to_json(@settings['modlists_url'])
-  modlist_json = modlistmanager_json.find { |m| m['links']['machineURL'] == id }
-  error(event, 'Modlist does not exist in external modlistmanager JSON') if modlist_json.nil?
-  name = modlist_json['title']
+  error(event, 'Modlist does not exist in external modlists JSON') if modlist_json.nil?
 
-  # format of user id @<185807760590372874>
-  match = user.match(/<@!?([0-9]+)>/)
-  user = match.nil? ? user.to_i : match.captures[0].to_i
-  puts user
-  member = event.server.members.find { |m| m.id == user }
-  puts "#{member} #{member.nil?}"
-  error(event, 'Invalid user provided') if member.nil?
-  username = member.name
-  puts "Found #{username} with id #{user}"
+  user = get_user_id(user)
+  # Confirm the id exists on the event server
 
   begin
-    role = event.server.create_role(name: name, colour: 0)
-  rescue Discordrb::Errors::NoPermission
-    error(event, 'I don\'t have permission to manage roles')
+    modlist = Modlist.new(id, name, user, username, role.id)
+  rescue ModlistNotFoundException => e
+    error(event, e.message)
   end
 
-  modlist = Modlist.new(id, name, user, username, role.id)
   return "Modlist #{name} with ID `#{id}` was added to the database." if @modlistmanager.add(modlist)
 end
 
@@ -147,16 +142,16 @@ end
   role = event.server.roles.find { |role| role.id == modlist.role_id }
   begin
     role.delete
-  rescue Discordrb::Errors::NoPermission
+  rescue Discordrb::Errors::NoPermission => e
     error(event, 'This bot requires the manage roles permission')
   end
   return "Modlist with ID `#{id}` was deleted." if @modlistmanager.del(modlist)
 end
 
 @bot.command(
-  :modlistmanager,
-  description: 'Presents a list of all modlistmanager',
-  usage: "#{opts[:prefix]}modlistmanager"
+  :modlists,
+  description: 'Presents a list of all modlists',
+  usage: "#{opts[:prefix]}modlists"
 ) do |event|
   admins_only(event)
 
@@ -174,22 +169,31 @@ def log(message)
   puts log_msg
 end
 
+# Error out when someone calls this method and isn't a bot administrator
 def admins_only(event)
   author = event.author
   error_msg = 'You don\'t have privileges for this action'
   error(event, error_msg) unless @settings['admins'].include? author.id
 end
 
+# Error out when someone calls this method and isn't a bot administrator or a person that can manage roles
 def manage_roles_only(event)
   author = event.author
   error_msg = 'You don\'t have privileges for this action'
-  error(event, error_msg) unless author.permission?(:manage_roles)
+  error(event, error_msg) unless author.permission?(:manage_roles) || @settings['admins'].include?(author.id)
 end
 
 def get_channel_id(event, channel)
-  puts channel
+  # Format of channel: <#717201910364635147>
   error(event, 'Invalid channel provided') unless (match = channel.match(/<#([0-9]+)>/))
   return match.captures[0]
 end
 
+def get_user_id(event, user)
+  # Format of user id: @<185807760590372874>
+  match = user.match(/<@!?([0-9]+)>/)
+  user = match.nil? ? user.to_i : match.captures[0].to_i
+  member = event.server.members.find { |m| m.id == user }
+  error(event, 'Invalid user provided') if member.nil?
+end
 @bot.run
