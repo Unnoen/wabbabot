@@ -8,13 +8,23 @@ class ServerManager
     read_existing_servers
   end
 
-  def get_servers_listening_to(modlist_id)
+  def get_servers_listening_to_id(modlist_id)
     servers_to_return = []
     @servers.each do |server|
       server.listening_channels.each do |channel|
         servers_to_return << server if channel.listening_to.include? modlist_id
       end
     end
+  end
+
+  def del_listeners_to_id(modlist_id)
+    @servers.each do |server|
+      server.listening_channels.each do |channel|
+        puts channel.id
+        channel.listening_to.reject! { |listening_modlist_id| listening_modlist_id == modlist_id }
+      end
+    end
+    save
   end
 
   def get_server_by_id(server_id)
