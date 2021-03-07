@@ -17,6 +17,16 @@ class ServerManager
     end
   end
 
+  def del_listeners_to_id(modlist_id)
+    @servers.each do |server|
+      server.listening_channels.each do |channel|
+        puts channel.id
+        channel.listening_to.reject! { |listening_modlist_id| listening_modlist_id == modlist_id }
+      end
+    end
+    save
+  end
+
   def get_server_by_id(server_id)
     @servers.find { |server| server.id == server_id }
   end

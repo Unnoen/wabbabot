@@ -2,6 +2,7 @@
 
 require 'active_support/all'
 require_relative 'modlist'
+require_relative '../errors/duplicatemodlistexception.rb'
 
 class ModlistManager
   def initialize
@@ -12,7 +13,7 @@ class ModlistManager
   end
 
   def add(modlist)
-    return false if @modlists.include? modlist
+    raise DuplicateModlistException if @modlists.include? modlist
 
     @modlists.push(modlist)
     save
@@ -37,20 +38,19 @@ class ModlistManager
   end
 
   def get_by_author_id(author_id)
-    @modlists.each do |modlist|
-      return modlist if modlist.author == author_id
-    end
+    @modlists.find { |existing_modlist| existing_modlist.author_id == author_id }
   end
 
   def save
-    # .positive? Makes it return a bool if succesful instead of the number of chars written
-    File.write(@modlist_path, @modlists.to_json).positive?
+    File.write(@modlist_path, @modlists.to_json)
   end
 
   def show
-    modlists_str = @modlists.count == 1 ? "There is 1 modlist.\n" : "There are #{@modlists.count} modlists.\n"
+    modlists_str = @modlists.count == 1 ? "There is 1 modlist.\n"
+                                        : "There are #{@modlists.count} modlists.\n"
+
     @modlists.each_with_index do |modlist, index|
-      modlists_str << "#{index} - **#{modlist.name}** (`#{modlist.id}`) owned by **#{modlist.authorname}** (#{modlist.author}).\n"
+      modlists_str << "#{index} - **#{modlist.title}** (`#{modlist.id}`) owned by #{modlist.author_id}.\n"
     end
     return modlists_str
   end
@@ -61,16 +61,16 @@ class ModlistManager
     return unless File.exist?(@modlist_path)
 
     json = JSON.parse(File.open(@modlist_path).read)
-    json.each do |child|
-      @modlists.push(
-        Modlist.new(
-          child['id'],
-          child['name'],
-          child['author'],
-          child['authorname'],
-          child['role_id']
-        )
-      )
+    modlists_json = uri_to_json($settings['modlists_url'])
+    json.each do |modlist|
+      @modlists.push(Modlist.new(modlist['id'], modlist['author_id'], modlists_json))
+    end
+  end
+
+  def refresh
+    modlists_json = uri_to_json($settings['modlists_url'])
+    @modlists.each do |modlist|
+      modlist.refresh(modlists_json)
     end
   end
 
