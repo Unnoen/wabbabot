@@ -13,6 +13,10 @@ require_relative 'errors/duplicatemodlistexception.rb'
 
 $root_dir = __dir__.freeze
 
+$stdout.reopen("#{$root_dir}/db/logfile", "w")
+$stdout.sync = true
+$stderr.reopen($stdout)
+
 opts = Slop.parse do |arg|
   arg.string '-p', '--prefix', 'prefix to use for @bot commands', default: '!'
   arg.on '-h', '--help' do
@@ -239,5 +243,6 @@ def get_server_role_for_role(event, role)
   error(event, 'Role does not exist in server') if (server_role = event.server.roles.find { |r| r.id == role_id }).nil?
   return server_role
 end
+
 
 @bot.run
