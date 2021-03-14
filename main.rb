@@ -198,7 +198,7 @@ end
 ) do |event|
   manage_roles_only(event)
 
-  @modlistmanager.show
+  event.channel.split_send(@modlistmanager.show)
 end
 
 def error(event, message)
