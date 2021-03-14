@@ -6,7 +6,6 @@ require_relative '../errors/modlistnotfoundexception'
 class Modlist
   attr_reader :id,
               :author_id,
-              :servers,
               :author,
               :title,
               :version,
@@ -16,13 +15,12 @@ class Modlist
               :download_link
 
   # Initialize a modlist with modlist id (aka machineURL), author discord ID, array of servers
-  def initialize(id, author_id, servers = [], modlists_json = uri_to_json($settings['modlists_url']))
+  def initialize(id, author_id, modlists_json = uri_to_json($settings['modlists_url']))
     modlist_json = modlists_json.find { |m| m['links']['machineURL'] == id }
     raise ModlistNotFoundException if modlist_json.nil?
 
     @id = id
     @author_id = author_id
-    @servers = servers
     @author = modlist_json['author']
     @title = modlist_json['title']
     @version = modlist_json['version']

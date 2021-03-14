@@ -42,7 +42,7 @@ class ModlistManager
   end
 
   def save
-    File.write(@modlist_path, @modlists.to_json)
+    File.write(@modlist_path, @modlists.to_json).positive?
   end
 
   def show

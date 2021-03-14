@@ -20,10 +20,16 @@ class ServerManager
   def del_listeners_to_id(modlist_id)
     @servers.each do |server|
       server.listening_channels.each do |channel|
-        puts channel.id
         channel.listening_to.reject! { |listening_modlist_id| listening_modlist_id == modlist_id }
       end
     end
+    save
+  end
+
+  def unlisten(server, channel_id, modlist_id)
+    server.unlisten_to_list_in_channel(channel_id, modlist_id)
+    puts server.listening_channels
+    @servers.delete(server) if server.listening_channels.empty?
     save
   end
 
@@ -38,6 +44,12 @@ class ServerManager
     server = Server.new(server_id, server_name)
     add(server)
     return server
+  end
+
+  def set_list_role_by_id(server_id, modlist_id, list_role)
+    server = get_server_by_id(server_id)
+    server.set_list_role(modlist_id, list_role)
+    save
   end
 
   def add_listener_to_channel(server, channel_id, modlist_id)
@@ -67,10 +79,13 @@ class ServerManager
           server.listen_to_list_in_channel(listening_channel_json['id'], modlist_id, listening_channel_json['auto_listen_to_new_lists'])
         end
       end
+      server_json['list_roles'].each do |list_role_json|
+        server.set_list_role(list_role_json[0], list_role_json[1].to_i)
+      end
       @servers.push(server)
     end
 
-    @servers.each { |server| puts "Server #{server.name} is listening to: #{server.listening_channels}" }
+    @servers.each { |server| puts "Server #{server.name} is listening to: #{server.listening_channels} and has roles #{server.list_roles}" }
   end
 
   def save
