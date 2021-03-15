@@ -116,6 +116,7 @@ end
   channel_count = 0
   server_count = 0
   error(event, 'There are no servers listening to this modlist') if listening_servers.empty?
+  modlist.refresh
   listening_servers.each do |listening_server|
     server = @bot.servers[listening_server.id]
     server_count += 1
