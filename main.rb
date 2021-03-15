@@ -108,7 +108,7 @@ end
 
   modlist = @modlistmanager.get_by_id(modlist_id)
   error(event, "Modlist with id #{modlist_id} not found") if modlist.nil?
-  error(event, 'You\'re not managing this list') if (event.author.id != modlist.author_id) || ($settings['admins'].include? event.author.id)
+  error(event, 'You\'re not managing this list') if (event.author.id != modlist.author_id) || !($settings['admins'].include? event.author.id)
 
   message = event.message.content.delete_prefix("#{opts[:prefix]}release #{modlist_id}")
 
