@@ -9,15 +9,5 @@ Metrics/BlockLength:
   Enabled: false
 Metrics/MethodLength:
   Enabled: false
-Metrics/AbcSize:
-  Enabled: true
 Style/GlobalVars:
   Enabled: false
-Style/MultilineTernaryOperator:
-  Enabled: true
-Style/RedundantReturn:
-  Enabled: true
-Style/FrozenStringLiteralComment:
-  Enabled: true
-Style/Documentation:
-  Enabled: true
